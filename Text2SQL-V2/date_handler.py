@@ -20,7 +20,7 @@ class DateHandler:
         elif column_type in ['datetime', 'smalldatetime']:
             return self.datetime_format
         else:
-            return self.date_format  # Default to DATE format for safety
+            return self.date_format  # Default to DATE format
 
     def generate_date_condition(self, date_str, date_column, column_type):
         """Generate SQL Server date conditions with YEAR function or CONVERT based on input."""
@@ -30,16 +30,12 @@ class DateHandler:
             date_str_lower = date_str.lower()
             sql_format = self._determine_column_type(column_type)
 
-            # Handle relative dates (placeholder for future enhancement)
+            # Handle relative dates (placeholder)
             if date_str_lower in ['last year', 'this year', 'next year']:
-                return ''  # Could use GETDATE() and DATEADD for relative dates
-
-            # Year only (e.g., "2023") - Use YEAR function
-            if date_str.strip().isdigit() and len(date_str.strip()) == 4:  # Check if input is a 4-digit year
-                return f"YEAR({date_column}) = {int(date_str)}"
+                return ''
 
             # Year and month (e.g., "February 2023")
-            elif date_obj.year and date_obj.month and not date_obj.day:
+            if date_obj.year and date_obj.month and not date_obj.day and any(month in date_str_lower for month in ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']):
                 start_date = date_obj.replace(day=1)
                 if date_obj.month == 12:
                     end_date = date_obj.replace(year=date_obj.year + 1, month=1, day=1)
@@ -51,6 +47,10 @@ class DateHandler:
                 else:  # datetime
                     return (f"{date_column} >= CONVERT(DATETIME, '{start_date.strftime('%Y-%m-%d')} 00:00:00', {sql_format}) "
                             f"AND {date_column} < CONVERT(DATETIME, '{end_date.strftime('%Y-%m-%d')} 00:00:00', {sql_format})")
+
+            # Year only (e.g., "2023")
+            elif date_str.strip().isdigit() and len(date_str.strip()) == 4:
+                return f"YEAR({date_column}) = {int(date_str)}"
 
             # Specific date (e.g., "2023-01-15")
             else:
