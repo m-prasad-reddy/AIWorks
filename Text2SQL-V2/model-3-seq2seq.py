@@ -3,7 +3,7 @@ import spacy
 from dateutil import parser as date_parser
 from collections import defaultdict
 import re
-from date_handler import DateHandler
+from old_date_handler import DateHandler
 
 # Load spaCy model for natural language processing
 nlp = spacy.load("en_core_web_sm")
@@ -127,22 +127,27 @@ class TextToSQL:
         return list(self.metadata.keys())[0]  # Default to first table if none found
 
     def get_fields(self, question, table):
+        """Determine fields to select, ensuring no duplicates and correct field for aggregations."""
         intent = self.get_intent(question)
         tokens = self.preprocess(question)
         selected_fields = []
 
         if intent in ['SUM', 'AVG']:
+            # Prioritize TotalAmount for 'amount' or 'total' keywords
             for token in tokens:
                 if token in ['amount', 'total']:
-                    for field in self.field_map.get(token, []):
-                        if field in self.numeric_columns[table]:
-                            return [field]
+                    if 'TotalAmount' in self.numeric_columns[table]:
+                        return ['TotalAmount']
+            # Fallback to first numeric column if no match
             return [self.numeric_columns[table][0]] if self.numeric_columns[table] else ['*']
         
+        # Collect fields without duplicates
         for token in tokens:
             if token in self.field_map:
-                selected_fields.extend([f for f in self.field_map[token] if f in self.metadata[table]])
+                selected_fields.extend(self.field_map[token])
         
+        # Deduplicate while preserving order
+        selected_fields = list(dict.fromkeys(f for f in selected_fields if f in self.metadata[table]))
         return selected_fields if selected_fields else ['*']
 
     # def generate_date_condition(self, date_str, date_column):
