@@ -1,2 +1,2 @@
-# aistuff1
-All stuff related to AI learnings and practice
+# AI Works
+All AI learnings and practice
