@@ -1,0 +1,64 @@
+who scored highest marks
+SELECT NAME, MAX(MARKS) AS HIGHEST_MARKS
+FROM STUDENT;
+('Sudhanshu', 100.0)
+('Sudhanshu', 100.0)
+show  all students
+SELECT * FROM STUDENT;
+('Krish', 'Data Science', 'A', 90.5)
+('Sudhanshu', 'Data Science', 'B', 100.0)
+('Darius', 'Data Science', 'A', 86.0)
+('Vikash', 'DEVOPS', 'A', 50.0)
+('Dipesh', 'DEVOPS', 'A', 35.0)
+('Krish', 'Data Science', 'A', 90.5)
+('Sudhanshu', 'Data Science', 'B', 100.0)
+('Darius', 'Data Science', 'A', 86.0)
+('Vikash', 'DEVOPS', 'A', 50.0)
+('Dipesh', 'DEVOPS', 'A', 35.0)
+which section has more students
+SELECT SECTION, COUNT(*) AS "Number of Students"
+FROM STUDENT
+GROUP BY SECTION
+ORDER BY "Number of Students" DESC
+('A', 4)
+('B', 1)
+('A', 4)
+('B', 1)
+which class has more students
+SELECT CLASS, COUNT(*) AS STUDENT_COUNT
+FROM STUDENT
+GROUP BY CLASS
+ORDER BY STUDENT_COUNT DESC
+LIMIT 1;
+('Data Science', 3)
+('Data Science', 3)
+which class scored more marks
+SELECT CLASS, SUM(Marks) AS TotalMarks 
+FROM STUDENT
+GROUP BY CLASS
+ORDER BY TotalMarks DESC
+('Data Science', 276.5)
+('DEVOPS', 85.0)
+('Data Science', 276.5)
+('DEVOPS', 85.0)
+which class has highest  marks
+SELECT CLASS, MAX(MARKS) 
+FROM STUDENT
+GROUP BY CLASS;
+('DEVOPS', 50.0)
+('Data Science', 100.0)
+('DEVOPS', 50.0)
+('Data Science', 100.0)
+which class student has scored highest  marks
+SELECT CLASS
+FROM STUDENT
+GROUP BY CLASS
+ORDER BY SUM(MARKS) DESC
+LIMIT 1;
+('Data Science',)
+('Data Science',)
+who scored highest  marks and their class
+SELECT NAME, CLASS, MAX(MARKS) FROM STUDENT
+('Sudhanshu', 'Data Science', 100.0)
+('Sudhanshu', 'Data Science', 100.0)
+
