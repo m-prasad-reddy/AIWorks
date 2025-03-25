@@ -6,7 +6,7 @@ import os
 SERVER = 'localhost'
 DATABASE = 'salesdb'
 USERNAME = 'sa'
-PASSWORD = 'S0rry!43'
+PASSWORD = ''
 def get_connection_uri():
     return f'mssql+pyodbc://{USERNAME}:{PASSWORD}@{SERVER}/{DATABASE}?driver=ODBC+Driver+17+for+SQL+Server'
 

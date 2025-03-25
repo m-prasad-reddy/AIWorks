@@ -202,7 +202,7 @@ def main():
     SERVER = 'localhost'
     DATABASE = 'salesdb'
     USERNAME = 'sa'
-    PASSWORD = 'S0rry!43'
+    PASSWORD = ''
     # Get SQL Server connection string (replace with your details or use env variable)
     #connection_string = os.getenv('SQL_CONNECTION_STRING')
     #if not connection_string:

@@ -9,7 +9,7 @@ nlp = spacy.load("en_core_web_sm")
 
 # Replace these with your actual credentials and database details
 USERNAME = "sa"
-PASSWORD = 'S0rry!43'
+PASSWORD = ''
 SERVER = "localhost"
 DATABASE = "BikeStores"
 
