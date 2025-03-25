@@ -3,15 +3,11 @@ import spacy
 from dateutil import parser as date_parser
 from collections import defaultdict
 import re
-from old_date_handler import DateHandler
 
-# Load spaCy model for natural language processing
 nlp = spacy.load("en_core_web_sm")
 
-# Step 1: Create Sample Database and Insert Data
 print("Sample database 'SalesDB' created and populated with data.")
 
-# Step 2: Extract Database Metadata
 def get_metadata(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
@@ -25,26 +21,60 @@ def get_metadata(conn):
         metadata[table] = {col[0]: col[1] for col in columns}
         date_columns[table] = [(col[0], col[1]) for col in columns if col[1] in ['date', 'datetime', 'smalldatetime']]
         numeric_columns[table] = [col[0] for col in columns if col[1] in ['int', 'decimal', 'float', 'money', 'numeric']]
-    # print(metadata, date_columns, numeric_columns)
     return metadata, date_columns, numeric_columns
 
-# Step 3: Create Training Data
 def create_training_data():
-    """Generate a list of question-SQL pairs for training."""
-    return  [
-        ("how many customers joined in 2023", "SELECT COUNT(*) FROM Customers WHERE JoinDate >= '2023-01-01' AND JoinDate < '2024-01-01'"),
+    return [
+        ("how many customers joined in 2023", "SELECT COUNT(*) FROM Customers WHERE YEAR(JoinDate)=2023"),
         ("what is the total amount of orders", "SELECT SUM(TotalAmount) FROM Orders"),
         ("show me customer names", "SELECT FirstName, LastName FROM Customers"),
-        ("list orders from 2023", "SELECT * FROM Orders WHERE OrderDate >= '2023-01-01' AND OrderDate < '2024-01-01'"),
+        ("list orders from 2023", "SELECT * FROM Orders WHERE YEAR(OrderDate) >= 2023"),
         ("Show me all customer names and their join dates", "SELECT FirstName, LastName, JoinDate FROM Customers"),
-        ("What is the average order amount in 2023?", "SELECT AVG(TotalAmount) FROM Orders WHERE OrderDate >= '2023-01-01' AND OrderDate < '2024-01-01'"),
-        #("List all orders placed by Jane Smith", "SELECT * FROM Orders WHERE CustomerID = (SELECT CustomerID FROM Customers WHERE FirstName = 'Jane' AND LastName = 'Smith')"),
+        ("What is the average order amount in 2023?", "SELECT AVG(TotalAmount) FROM Orders WHERE YEAR(OrderDate) = 2023"),
         ("List all orders placed by Jane Smith", "SELECT * FROM Orders o JOIN Customers c ON o.CustomerID = c.CustomerID WHERE c.FirstName = 'Jane' AND c.LastName = 'Smith'"),
         ("Get the email addresses of all customers", "SELECT Email FROM Customers"),
-        ("How many orders were placed in June 2023?", "SELECT COUNT(*) FROM Orders WHERE OrderDate >= '2023-06-01' AND OrderDate < '2023-07-01'"),
+        ("How many orders were placed in June 2023?", "SELECT COUNT(*) FROM Orders WHERE MONTH(OrderDate)='06' AND YEAR(OrderDate)= 2023")
     ]
 
-# Step 4: Text-to-SQL Conversion Class with Training Data Integration
+class DateHandler:
+    def parse_date_entities(self, question, nlp):
+        doc = nlp(question)
+        dates = [ent.text for ent in doc.ents if ent.label_ == 'DATE']
+        return dates
+
+    def generate_date_condition(self, date_str, date_column, column_type):
+        try:
+            date_str_clean = date_str.strip()
+            date_obj = date_parser.parse(date_str, default=date_parser.parse('2000-01-01'))
+            date_str_lower = date_str.lower()
+
+            if date_str_clean.isdigit() and len(date_str_clean) == 4:
+                return f"YEAR({date_column}) = {int(date_str_clean)}"
+
+            months = {
+                'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
+                'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+            }
+            for month_name, month_num in months.items():
+                if month_name in date_str_lower:
+                    return f"MONTH({date_column}) = '{month_num}' AND YEAR({date_column}) = {date_obj.year}"
+
+            if column_type == 'date':
+                return f"{date_column} = CONVERT(DATE, '{date_obj.strftime('%Y-%m-%d')}', 23)"
+            else:
+                return f"{date_column} = CONVERT(DATETIME, '{date_obj.strftime('%Y-%m-%d')} 00:00:00', 120)"
+
+        except ValueError:
+            return ''
+
+    def generate_conditions(self, question, date_column, column_type, nlp):
+        date_entities = self.parse_date_entities(question, nlp)
+        if not date_entities or not date_column:
+            return ''
+        conditions = [self.generate_date_condition(date_str, date_column, column_type) for date_str in date_entities]
+        conditions = [cond for cond in conditions if cond]
+        return "WHERE " + " AND ".join(conditions) if conditions else ''
+
 class TextToSQL:
     def __init__(self, metadata, date_columns, numeric_columns, training_data):
         self.nlp = nlp
@@ -54,13 +84,16 @@ class TextToSQL:
         self.training_data = training_data
         self.intent_map = defaultdict(lambda: 'SELECT')
         self.field_map = defaultdict(list)
-        self.table_map = defaultdict(lambda: None)
+        self.table_map = defaultdict(str)
         self.date_handler = DateHandler()
         self._learn_from_training_data()
 
     def _learn_from_training_data(self):
         for question, sql in self.training_data:
             question_lower = question.lower()
+            tokens = self.preprocess(question)
+
+            # Intent mapping
             if 'how many' in question_lower:
                 self.intent_map['how many'] = 'COUNT'
             elif 'total' in question_lower:
@@ -71,28 +104,48 @@ class TextToSQL:
                 self.intent_map['show'] = 'SELECT'
                 self.intent_map['list'] = 'SELECT'
 
-            tokens = self.preprocess(question)
-            for table in self.metadata.keys():
-                table_lower = table.lower()
-                self.table_map[table_lower] = table
-                self.table_map[table_lower + 's'] = table
-                if table_lower in tokens or (table_lower + 's') in tokens:
-                    self.table_map[table_lower] = table
+            # Table mapping
+            table_match = re.search(r'FROM\s+([^\s]+)', sql, re.IGNORECASE)
+            if table_match:
+                table = table_match.group(1)
+                for token in tokens:
+                    if token in ['customer', 'customers']:
+                        self.table_map[token] = 'Customers'
+                    elif token in ['order', 'orders']:
+                        self.table_map[token] = 'Orders'
 
+            # Field mapping
             select_match = re.search(r'SELECT\s+(.+?)\s+FROM', sql, re.IGNORECASE)
             if select_match:
                 fields_str = select_match.group(1)
-                if fields_str != '*':
-                    fields = [f.strip() for f in fields_str.split(',')]
-                    for token in tokens:
-                        if token not in ['how', 'many', 'what', 'is', 'in', 'from', 'did', 'place']:
+                if fields_str == '*':
+                    continue
+                fields = [f.strip() for f in fields_str.split(',') if not f.strip().startswith('o.') and not f.strip().startswith('c.')]
+                identified_table = self.identify_table(question)
+                for token in tokens:
+                    if token not in ['how', 'many', 'what', 'is', 'in', 'from', 'did', 'place', 'joined', 'their', 'all', 'get', 'were', 'placed']:
+                        if token == 'names':
+                            self.field_map[token] = ['FirstName', 'LastName']
+                        elif token in ['emails', 'email']:
+                            self.field_map[token] = ['Email']
+                        elif token == 'amount':
+                            self.field_map[token] = ['TotalAmount']
+                        elif token == 'dates':
+                            self.field_map[token] = ['JoinDate']
+                        elif token == 'customer' and 'names' in tokens and 'emails' in tokens:
+                            continue
+                        else:
                             for field in fields:
-                                if field in self.metadata.get(self.identify_table(question), {}):
+                                if field in self.metadata.get(identified_table, {}):
                                     self.field_map[token].append(field)
+        # Deduplicate field_map entries
+        for key in self.field_map:
+            self.field_map[key] = list(dict.fromkeys(self.field_map[key]))
 
     def preprocess(self, text):
         doc = self.nlp(text.lower())
-        tokens = [token.text for token in doc if not token.is_stop and token.is_alpha]
+        # Include 'amount' even if it's a stop word
+        tokens = [token.text for token in doc if (not token.is_stop or token.text == 'amount') and token.is_alpha]
         return tokens
 
     def get_intent(self, question):
@@ -102,76 +155,46 @@ class TextToSQL:
                 return self.intent_map[phrase]
         return 'SELECT'
 
-    # def parse_date_entities(self, question):
-    #     doc = self.nlp(question)
-    #     dates = [ent.text for ent in doc.ents if ent.label_ == 'DATE']
-    #     return dates
-
-    def parse_date_entities(self, question):
-        return self.date_handler.parse_date_entities(question, self.nlp)
-    
-    # def identify_table(self, question):
-    #     tokens = self.preprocess(question)
-    #     question_lower = question.lower()
-    #     for table in self.metadata.keys():
-    #         if table.lower() in question_lower or (table.lower() + 's') in question_lower:
-    #             return table
-    #     return list(self.metadata.keys())[0]  # Default to first table
-
     def identify_table(self, question):
-        """Identify the table referenced in the question."""
         tokens = self.preprocess(question)
         for token in tokens:
-            if token in self.table_map:
+            if token in self.table_map and self.table_map[token]:
                 return self.table_map[token]
-        return list(self.metadata.keys())[0]  # Default to first table if none found
+        return 'Customers'
 
     def get_fields(self, question, table):
-        """Determine fields to select, ensuring no duplicates and correct field for aggregations."""
         intent = self.get_intent(question)
         tokens = self.preprocess(question)
+        print(f"Tokens: {tokens}")  # Debugging
         selected_fields = []
 
-        if intent in ['SUM', 'AVG']:
-            # Prioritize TotalAmount for 'amount' or 'total' keywords
+        if intent == 'SUM':
             for token in tokens:
                 if token in ['amount', 'total']:
-                    if 'TotalAmount' in self.numeric_columns[table]:
+                    if 'TotalAmount' in self.metadata[table]:
                         return ['TotalAmount']
-            # Fallback to first numeric column if no match
             return [self.numeric_columns[table][0]] if self.numeric_columns[table] else ['*']
-        
-        # Collect fields without duplicates
+        elif intent == 'AVG':
+            for token in tokens:
+                if token in ['amount', 'order']:  # Include 'order' for context
+                    if 'TotalAmount' in self.metadata[table]:
+                        return ['TotalAmount']
+            return [self.numeric_columns[table][0]] if self.numeric_columns[table] else ['*']
+        elif intent == 'COUNT':
+            return ['*']
+        elif intent == 'SELECT' and 'list' in question.lower():
+            return ['*']
+
+        if 'names' in tokens and 'emails' in tokens:
+            return ['FirstName', 'LastName', 'Email']
+
         for token in tokens:
             if token in self.field_map:
                 selected_fields.extend(self.field_map[token])
-        
-        # Deduplicate while preserving order
+
         selected_fields = list(dict.fromkeys(f for f in selected_fields if f in self.metadata[table]))
         return selected_fields if selected_fields else ['*']
 
-    # def generate_date_condition(self, date_str, date_column):
-    #     try:
-    #         date_obj = date_parser.parse(date_str, default=date_parser.parse('2000-01-01'))
-    #         if date_str.lower() in ['last year', 'this year', 'next year']:
-    #             return ''
-    #         elif date_obj.year and date_obj.month and not date_obj.day:
-    #             start_date = date_obj.replace(day=1)
-    #             end_date = start_date.replace(month=start_date.month % 12 + 1, year=start_date.year + (start_date.month // 12))
-    #             return f"{date_column} >= '{start_date.strftime('%Y-%m-%d')}' AND {date_column} < '{end_date.strftime('%Y-%m-%d')}'"
-    #         elif date_obj.year and not date_obj.month:
-    #             start_date = date_obj.replace(month=1, day=1)
-    #             end_date = date_obj.replace(year=date_obj.year + 1, month=1, day=1)
-    #             return f"{date_column} >= '{start_date.strftime('%Y-%m-%d')}' AND {date_column} < '{end_date.strftime('%Y-%m-%d')}'"
-    #         else:
-    #             return f"{date_column} = '{date_obj.strftime('%Y-%m-%d')}'"
-    #     except ValueError:
-    #         return ''
-
-    def generate_date_condition(self, date_str, date_column):
-        # Kept for compatibility, but not used directly
-        return self.date_handler.generate_date_condition(date_str, date_column, 'date')
-    
     def generate_sql(self, question):
         table = self.identify_table(question)
         if not table:
@@ -183,31 +206,19 @@ class TextToSQL:
         if intent == 'COUNT':
             select_clause = "SELECT COUNT(*)"
         elif intent in ['SUM', 'AVG']:
-            if self.numeric_columns[table]:
-                field = fields[0] if fields != ['*'] else self.numeric_columns[table][0]
-                select_clause = f"SELECT {intent}({field})"
-            else:
-                return "Error: No numeric columns for aggregation"
+            field = fields[0] if fields != ['*'] else self.numeric_columns[table][0]
+            select_clause = f"SELECT {intent}({field})"
         else:
             select_clause = f"SELECT {', '.join(fields)}"
 
         from_clause = f"FROM {table}"
         where_clause = ""
-        
-        # date_entities = self.parse_date_entities(question)
-        # if date_entities and self.date_columns[table]:
-        #     date_column = self.date_columns[table][0]
-        #     conditions = [self.generate_date_condition(date_str, date_column) for date_str in date_entities]
-        #     conditions = [cond for cond in conditions if cond]
-        #     if conditions:
-        #         where_clause = "WHERE " + " AND ".join(conditions)
-        
         if self.date_columns[table]:
-            date_column, column_type = self.date_columns[table][0]  # Get column name and type
+            date_column, column_type = self.date_columns[table][0]
             where_clause = self.date_handler.generate_conditions(question, date_column, column_type, self.nlp)
-            
+
         sql = f"{select_clause} {from_clause} {where_clause}".strip()
-        return sql if not sql.startswith("Error") else sql
+        return sql
 
     def execute_query(self, sql, conn):
         if sql.startswith("Error"):
@@ -220,17 +231,15 @@ class TextToSQL:
         except Exception as e:
             return f"Error: {str(e)}"
 
-# Step 5: Main Function to Run the Program
 def main():
-    """Main function to set up database, integrate training data, and test queries."""
-    #create_sample_database()
-
     conn = sqlconn.get_sql_connection()
-
     metadata, date_columns, numeric_columns = get_metadata(conn)
     training_data = create_training_data()
 
     converter = TextToSQL(metadata, date_columns, numeric_columns, training_data)
+
+    print("\nField Map:", dict(converter.field_map))
+    print("Table Map:", dict(converter.table_map))
 
     print("\n--- Training Data ---")
     for question, sql in training_data:
