@@ -189,7 +189,7 @@ def log_feedback(prompt: str, generated_sql: str, corrected_sql: str):
 # ------------------ Entry Point ------------------
 if __name__ == "__main__":
     # Set your connection details here
-    DSN = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=localhost;DATABASE=AdventureWorks;UID=sa;PWD=S0rry!43"
+    DSN = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=localhost;DATABASE=AdventureWorks;UID=sa;PWD="
 
     # Start Phase 1: Load schema metadata
     schema = initialize_metadata_phase(

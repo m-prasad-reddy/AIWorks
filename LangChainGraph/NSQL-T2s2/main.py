@@ -238,7 +238,7 @@ if __name__ == "__main__":
     SERVER = "localhost"
     DATABASE = "AdventureWorks"
     USER = "sa"
-    PASSWORD = "S0rry!43"
+    PASSWORD = ""
     schema = initialize_metadata_phase(
         host=SERVER,
         db=DATABASE,

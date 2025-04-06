@@ -13,7 +13,7 @@ model = AutoModelForCausalLM.from_pretrained("NumbersStation/nsql-6B")
 query_cache = defaultdict(str)
 
 # --- SQL Server Connection String ---
-CONN_STR = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=localhost;DATABASE=BikeStores;UID=sa;PWD=S0rry!43"
+CONN_STR = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=localhost;DATABASE=BikeStores;UID=sa;PWD="
 
 # --- Get all table info ---
 def get_all_table_info(conn_str: str):

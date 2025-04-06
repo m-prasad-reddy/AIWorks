@@ -2,7 +2,7 @@ import pyodbc
 
 # Config vibes
 USERNAME = "sa"
-PASSWORD = "S0rry!43"  # Update with your password
+PASSWORD = ""  # Update with your password
 SERVER = "localhost"
 DATABASE = "BikeStores"
 
