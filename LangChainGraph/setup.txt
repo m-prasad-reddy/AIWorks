@@ -1,0 +1,1 @@
+pip install langchain langgraph langsmith openai fastapi uvicorn pandas sqlalchemy pyodbc python-dotenv
