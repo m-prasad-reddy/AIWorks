@@ -1,0 +1,781 @@
+{
+  "SalesLT.Customer": {
+    "columns": [
+      [
+        "CustomerID",
+        "int"
+      ],
+      [
+        "NameStyle",
+        "bit"
+      ],
+      [
+        "Title",
+        "nvarchar"
+      ],
+      [
+        "FirstName",
+        "nvarchar"
+      ],
+      [
+        "MiddleName",
+        "nvarchar"
+      ],
+      [
+        "LastName",
+        "nvarchar"
+      ],
+      [
+        "Suffix",
+        "nvarchar"
+      ],
+      [
+        "CompanyName",
+        "nvarchar"
+      ],
+      [
+        "SalesPerson",
+        "nvarchar"
+      ],
+      [
+        "EmailAddress",
+        "nvarchar"
+      ],
+      [
+        "Phone",
+        "nvarchar"
+      ],
+      [
+        "PasswordHash",
+        "varchar"
+      ],
+      [
+        "PasswordSalt",
+        "varchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "CompanyName": "",
+      "CustomerID": "",
+      "EmailAddress": "",
+      "FirstName": "",
+      "LastName": "",
+      "MiddleName": "",
+      "ModifiedDate": "",
+      "NameStyle": "",
+      "PasswordHash": "",
+      "PasswordSalt": "",
+      "Phone": "",
+      "rowguid": "",
+      "SalesPerson": "",
+      "Suffix": "",
+      "Title": ""
+    }
+  },
+  "SalesLT.ProductModel": {
+    "columns": [
+      [
+        "ProductModelID",
+        "int"
+      ],
+      [
+        "Name",
+        "nvarchar"
+      ],
+      [
+        "CatalogDescription",
+        "xml"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "CatalogDescription": "",
+      "ModifiedDate": "",
+      "Name": "",
+      "ProductModelID": "",
+      "rowguid": ""
+    }
+  },
+  "SalesLT.vProductModelCatalogDescription": {
+    "columns": [
+      [
+        "ProductModelID",
+        "int"
+      ],
+      [
+        "Name",
+        "nvarchar"
+      ],
+      [
+        "Summary",
+        "nvarchar"
+      ],
+      [
+        "Manufacturer",
+        "nvarchar"
+      ],
+      [
+        "Copyright",
+        "nvarchar"
+      ],
+      [
+        "ProductURL",
+        "nvarchar"
+      ],
+      [
+        "WarrantyPeriod",
+        "nvarchar"
+      ],
+      [
+        "WarrantyDescription",
+        "nvarchar"
+      ],
+      [
+        "NoOfYears",
+        "nvarchar"
+      ],
+      [
+        "MaintenanceDescription",
+        "nvarchar"
+      ],
+      [
+        "Wheel",
+        "nvarchar"
+      ],
+      [
+        "Saddle",
+        "nvarchar"
+      ],
+      [
+        "Pedal",
+        "nvarchar"
+      ],
+      [
+        "BikeFrame",
+        "nvarchar"
+      ],
+      [
+        "Crankset",
+        "nvarchar"
+      ],
+      [
+        "PictureAngle",
+        "nvarchar"
+      ],
+      [
+        "PictureSize",
+        "nvarchar"
+      ],
+      [
+        "ProductPhotoID",
+        "nvarchar"
+      ],
+      [
+        "Material",
+        "nvarchar"
+      ],
+      [
+        "Color",
+        "nvarchar"
+      ],
+      [
+        "ProductLine",
+        "nvarchar"
+      ],
+      [
+        "Style",
+        "nvarchar"
+      ],
+      [
+        "RiderExperience",
+        "nvarchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {}
+  },
+  "SalesLT.ProductDescription": {
+    "columns": [
+      [
+        "ProductDescriptionID",
+        "int"
+      ],
+      [
+        "Description",
+        "nvarchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "Description": "",
+      "ModifiedDate": "",
+      "ProductDescriptionID": "",
+      "rowguid": ""
+    }
+  },
+  "SalesLT.Product": {
+    "columns": [
+      [
+        "ProductID",
+        "int"
+      ],
+      [
+        "Name",
+        "nvarchar"
+      ],
+      [
+        "ProductNumber",
+        "nvarchar"
+      ],
+      [
+        "Color",
+        "nvarchar"
+      ],
+      [
+        "StandardCost",
+        "money"
+      ],
+      [
+        "ListPrice",
+        "money"
+      ],
+      [
+        "Size",
+        "nvarchar"
+      ],
+      [
+        "Weight",
+        "decimal"
+      ],
+      [
+        "ProductCategoryID",
+        "int"
+      ],
+      [
+        "ProductModelID",
+        "int"
+      ],
+      [
+        "SellStartDate",
+        "datetime"
+      ],
+      [
+        "SellEndDate",
+        "datetime"
+      ],
+      [
+        "DiscontinuedDate",
+        "datetime"
+      ],
+      [
+        "ThumbNailPhoto",
+        "varbinary"
+      ],
+      [
+        "ThumbnailPhotoFileName",
+        "nvarchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "Color": "",
+      "DiscontinuedDate": "",
+      "ListPrice": "",
+      "ModifiedDate": "",
+      "Name": "",
+      "ProductCategoryID": "",
+      "ProductID": "",
+      "ProductModelID": "",
+      "ProductNumber": "",
+      "rowguid": "",
+      "SellEndDate": "",
+      "SellStartDate": "",
+      "Size": "",
+      "StandardCost": "",
+      "ThumbNailPhoto": "",
+      "ThumbnailPhotoFileName": "",
+      "Weight": ""
+    }
+  },
+  "SalesLT.ProductModelProductDescription": {
+    "columns": [
+      [
+        "ProductModelID",
+        "int"
+      ],
+      [
+        "ProductDescriptionID",
+        "int"
+      ],
+      [
+        "Culture",
+        "nchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "Culture": "",
+      "ModifiedDate": "",
+      "ProductDescriptionID": "",
+      "ProductModelID": "",
+      "rowguid": ""
+    }
+  },
+  "SalesLT.vProductAndDescription": {
+    "columns": [
+      [
+        "ProductID",
+        "int"
+      ],
+      [
+        "Name",
+        "nvarchar"
+      ],
+      [
+        "ProductModel",
+        "nvarchar"
+      ],
+      [
+        "Culture",
+        "nchar"
+      ],
+      [
+        "Description",
+        "nvarchar"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {}
+  },
+  "SalesLT.ProductCategory": {
+    "columns": [
+      [
+        "ProductCategoryID",
+        "int"
+      ],
+      [
+        "ParentProductCategoryID",
+        "int"
+      ],
+      [
+        "Name",
+        "nvarchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "ModifiedDate": "",
+      "Name": "",
+      "ParentProductCategoryID": "",
+      "ProductCategoryID": "",
+      "rowguid": ""
+    }
+  },
+  "SalesLT.vGetAllCategories": {
+    "columns": [
+      [
+        "ParentProductCategoryName",
+        "nvarchar"
+      ],
+      [
+        "ProductCategoryName",
+        "nvarchar"
+      ],
+      [
+        "ProductCategoryID",
+        "int"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {}
+  },
+  "dbo.BuildVersion": {
+    "columns": [
+      [
+        "SystemInformationID",
+        "tinyint"
+      ],
+      [
+        "Database Version",
+        "nvarchar"
+      ],
+      [
+        "VersionDate",
+        "datetime"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "Database Version": "",
+      "ModifiedDate": "",
+      "SystemInformationID": "",
+      "VersionDate": ""
+    }
+  },
+  "dbo.ErrorLog": {
+    "columns": [
+      [
+        "ErrorLogID",
+        "int"
+      ],
+      [
+        "ErrorTime",
+        "datetime"
+      ],
+      [
+        "UserName",
+        "nvarchar"
+      ],
+      [
+        "ErrorNumber",
+        "int"
+      ],
+      [
+        "ErrorSeverity",
+        "int"
+      ],
+      [
+        "ErrorState",
+        "int"
+      ],
+      [
+        "ErrorProcedure",
+        "nvarchar"
+      ],
+      [
+        "ErrorLine",
+        "int"
+      ],
+      [
+        "ErrorMessage",
+        "nvarchar"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "ErrorLine": "",
+      "ErrorLogID": "",
+      "ErrorMessage": "",
+      "ErrorNumber": "",
+      "ErrorProcedure": "",
+      "ErrorSeverity": "",
+      "ErrorState": "",
+      "ErrorTime": "",
+      "UserName": ""
+    }
+  },
+  "SalesLT.Address": {
+    "columns": [
+      [
+        "AddressID",
+        "int"
+      ],
+      [
+        "AddressLine1",
+        "nvarchar"
+      ],
+      [
+        "AddressLine2",
+        "nvarchar"
+      ],
+      [
+        "City",
+        "nvarchar"
+      ],
+      [
+        "StateProvince",
+        "nvarchar"
+      ],
+      [
+        "CountryRegion",
+        "nvarchar"
+      ],
+      [
+        "PostalCode",
+        "nvarchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "AddressID": "",
+      "AddressLine1": "",
+      "AddressLine2": "",
+      "City": "",
+      "CountryRegion": "",
+      "ModifiedDate": "",
+      "PostalCode": "",
+      "rowguid": "",
+      "StateProvince": ""
+    }
+  },
+  "SalesLT.CustomerAddress": {
+    "columns": [
+      [
+        "CustomerID",
+        "int"
+      ],
+      [
+        "AddressID",
+        "int"
+      ],
+      [
+        "AddressType",
+        "nvarchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "AddressID": "",
+      "AddressType": "",
+      "CustomerID": "",
+      "ModifiedDate": "",
+      "rowguid": ""
+    }
+  },
+  "SalesLT.SalesOrderDetail": {
+    "columns": [
+      [
+        "SalesOrderID",
+        "int"
+      ],
+      [
+        "SalesOrderDetailID",
+        "int"
+      ],
+      [
+        "OrderQty",
+        "smallint"
+      ],
+      [
+        "ProductID",
+        "int"
+      ],
+      [
+        "UnitPrice",
+        "money"
+      ],
+      [
+        "UnitPriceDiscount",
+        "money"
+      ],
+      [
+        "LineTotal",
+        "numeric"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "LineTotal": "",
+      "ModifiedDate": "",
+      "OrderQty": "",
+      "ProductID": "",
+      "rowguid": "",
+      "SalesOrderDetailID": "",
+      "SalesOrderID": "",
+      "UnitPrice": "",
+      "UnitPriceDiscount": ""
+    }
+  },
+  "SalesLT.SalesOrderHeader": {
+    "columns": [
+      [
+        "SalesOrderID",
+        "int"
+      ],
+      [
+        "RevisionNumber",
+        "tinyint"
+      ],
+      [
+        "OrderDate",
+        "datetime"
+      ],
+      [
+        "DueDate",
+        "datetime"
+      ],
+      [
+        "ShipDate",
+        "datetime"
+      ],
+      [
+        "Status",
+        "tinyint"
+      ],
+      [
+        "OnlineOrderFlag",
+        "bit"
+      ],
+      [
+        "SalesOrderNumber",
+        "nvarchar"
+      ],
+      [
+        "PurchaseOrderNumber",
+        "nvarchar"
+      ],
+      [
+        "AccountNumber",
+        "nvarchar"
+      ],
+      [
+        "CustomerID",
+        "int"
+      ],
+      [
+        "ShipToAddressID",
+        "int"
+      ],
+      [
+        "BillToAddressID",
+        "int"
+      ],
+      [
+        "ShipMethod",
+        "nvarchar"
+      ],
+      [
+        "CreditCardApprovalCode",
+        "varchar"
+      ],
+      [
+        "SubTotal",
+        "money"
+      ],
+      [
+        "TaxAmt",
+        "money"
+      ],
+      [
+        "Freight",
+        "money"
+      ],
+      [
+        "TotalDue",
+        "money"
+      ],
+      [
+        "Comment",
+        "nvarchar"
+      ],
+      [
+        "rowguid",
+        "uniqueidentifier"
+      ],
+      [
+        "ModifiedDate",
+        "datetime"
+      ]
+    ],
+    "table_description": "",
+    "column_descriptions": {
+      "AccountNumber": "",
+      "BillToAddressID": "",
+      "Comment": "",
+      "CreditCardApprovalCode": "",
+      "CustomerID": "",
+      "DueDate": "",
+      "Freight": "",
+      "ModifiedDate": "",
+      "OnlineOrderFlag": "",
+      "OrderDate": "",
+      "PurchaseOrderNumber": "",
+      "RevisionNumber": "",
+      "rowguid": "",
+      "SalesOrderID": "",
+      "SalesOrderNumber": "",
+      "ShipDate": "",
+      "ShipMethod": "",
+      "ShipToAddressID": "",
+      "Status": "",
+      "SubTotal": "",
+      "TaxAmt": "",
+      "TotalDue": ""
+    }
+  }
+}
