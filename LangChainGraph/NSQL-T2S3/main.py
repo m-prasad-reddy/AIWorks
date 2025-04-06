@@ -80,7 +80,7 @@ def create_table_hints_cache(schema: Dict[str, Any], cache_path: str = TABLE_HIN
     Path(".cache").mkdir(exist_ok=True)
     table_hints = {
         "order": ["sales.orders", "sales.order_items"],
-        "city": ["sales.stores", "sales.customers"],  # Stores first for orders context
+        "city": ["sales.stores", "sales.customers"],
         "ship": ["sales.orders"],
         "date": ["sales.orders"],
         "customer": ["sales.customers"],
@@ -88,7 +88,6 @@ def create_table_hints_cache(schema: Dict[str, Any], cache_path: str = TABLE_HIN
         "product": ["production.products", "sales.order_items"]
     }
 
-    # Enhance with schema data
     for table_name, meta in schema.items():
         cols_lower = [col[0].lower() for col in meta["columns"]]
         for keyword in table_hints:
@@ -142,11 +141,10 @@ def identify_relevant_tables(user_query: str, schema: Dict[str, Any]) -> List[st
         )
         match_count = len([word for word in keywords if word in combined_text])
         
-        # Boost with hints, prioritize [sales].[stores] for city with orders
         for keyword, tables in table_hints.items():
             if keyword in query_lower and table_name in tables:
                 if keyword == "city" and "order" in query_lower and table_name == "sales.stores":
-                    match_count += 5  # Extra boost for stores with orders
+                    match_count += 5
                 else:
                     match_count += 3
         
@@ -175,6 +173,8 @@ def generate_sql(prompt: str):
     sql = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
     if not sql.strip().upper().startswith("SELECT"):
         sql = "SELECT " + sql.split("SELECT", 1)[-1] if "SELECT" in sql.upper() else "Error: Invalid SQL generated"
+    # Remove trailing semicolon to avoid execution errors
+    sql = sql.rstrip(';').strip()
     return sql
 
 # JSON helpers
