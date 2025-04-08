@@ -1,0 +1,20 @@
+{
+    "ADWORKS_DB":{
+      "server": "localhost",
+      "database": "adventureworks",
+      "user": "sa",
+      "password": ""
+    },
+    "ADWORKS2019_DB": {
+      "server": "localhost",
+      "database": "AdventureWorksDW2019",
+      "user": "sa",
+      "password": ""
+    },
+    "BIKES_DB": {
+      "server": "localhost",
+      "database": "BikeStores",
+      "user": "sa",
+      "password": ""
+    }
+  }
