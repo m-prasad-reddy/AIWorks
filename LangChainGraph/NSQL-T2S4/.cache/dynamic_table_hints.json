@@ -1,0 +1,38 @@
+{
+  "categories": [
+    "production.categories"
+  ],
+  "brands": [
+    "production.brands"
+  ],
+  "products": [
+    "production.products"
+  ],
+  "customers": [
+    "sales.customers"
+  ],
+  "stores": [
+    "sales.stores"
+  ],
+  "staffs": [
+    "sales.staffs"
+  ],
+  "orders": [
+    "sales.orders"
+  ],
+  "order_items": [
+    "sales.order_items"
+  ],
+  "stocks": [
+    "production.stocks"
+  ],
+  "sysdiagrams": [
+    "dbo.sysdiagrams"
+  ],
+  "candidates": [
+    "hr.candidates"
+  ],
+  "employees": [
+    "hr.employees"
+  ]
+}

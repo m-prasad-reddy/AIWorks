@@ -1,0 +1,62 @@
+{
+  "f684275b60245f0b5887ebd30bb92c5807d5af251b4f524bb3b335e92ea0c9c9": {
+    "generated": "SELECT  only):\n-- Use [SCHEMA].[TABLE] format\n-- get me city wise orders count shifted in 2016\nSELECT COUNT(*) FROM [sales].[orders] WHERE order_date LIKE '%2016%'",
+    "corrected": "SELECT [sales].[stores].[city], COUNT(*) FROM [sales].[stores] JOIN [sales].[orders] ON [sales].[stores].[store_id] = [sales].[orders].[store_id] WHERE YEAR([sales].[orders].[shipped_date])=2016 GROUP BY [sales].[stores].[city]",
+    "timestamp": "2025-04-07T18:42:33.269496"
+  },
+  "9c208bf1d5f3f9a3e04120ddfde537671e4b308319e246227e26d031807d8572": {
+    "generated": "SELECT  only):\n-- Use [SCHEMA].[TABLE] format\n-- get me orders of 2016\nSELECT * FROM sales.orders WHERE order_date = 2016",
+    "corrected": "SELECT * FROM sales.orders WHERE year(order_date) = 2016",
+    "timestamp": "2025-04-07T18:44:46.116031"
+  },
+  "48f089f849622e3aa069a11404f67980dace82231760dc67abdfafca194f0470": {
+    "generated": "SELECT  only):\n-- Use [SCHEMA].[TABLE] format\n-- show product names produced year wise along with its price\nSELECT product_name, list_price FROM products WHERE model_year = (SELECT MAX(model_year) FROM products)",
+    "corrected": "SELECT product_name, list_price FROM [production].products ORDER BY [production].products.model_year",
+    "timestamp": "2025-04-08T10:01:24.379006"
+  },
+  "70b29153f5ca7a9bcb1b9712d2f5d29e8b312e334caaa668f45750a70482c4e9": {
+    "generated": "SELECT only):\n-- Use [SCHEMA].[TABLE] format (e.g., [production].[products])\n-- Include all requested columns explicitly\n-- Use ORDER BY for 'year wise' queries unless 'latest' is specified\n-- For 'latest', use MAX() with GROUP BY or subquery\n-- Query: show latest products  produced year wise along with its price\nSELECT MAX(product_id), MAX(list_price) FROM products GROUP BY MAX(product_id)",
+    "corrected": "SELECT p.product_name, p.model_year, p.list_price FROM [production].[products] p WHERE p.model_year = (SELECT MAX(model_year) FROM [production].[products] WHERE product_name = p.product_name) ORDER BY p.model_year",
+    "timestamp": "2025-04-08T11:11:15.857321"
+  },
+  "d89c8ba1293fadccfbfec58c9fe9a99f03f366cf029ec85227264b565daa996e": {
+    "generated": "SELECT only):\n-- Use [SCHEMA].[TABLE] format (e.g., [production].[products])\n-- Include all requested columns explicitly (e.g., name, year, price)\n-- For 'latest', filter to the most recent year per group (e.g., MAX(model_year) with subquery)\n-- For 'year wise', ORDER BY year column\n-- Query: show latest products  produced year wise along with its price\nSELECT MAX(model_year), MAX(list_price) FROM [production].[products]",
+    "corrected": "SELECT p.product_name, p.model_year, p.list_price FROM [production].[products] p WHERE p.model_year = (SELECT MAX(model_year) FROM [production].[products] WHERE product_name = p.product_name) ORDER BY p.model_year",
+    "timestamp": "2025-04-08T11:24:47.380877"
+  },
+  "aa647099df57c79bc13d38e853f9316bf18f5e6ba56505c881403f7b640b49c6": {
+    "generated": "SELECT only):\n\n\n\n\n\n\n\n\n\n\nSELECT product_name, model_year, list_price FROM [production].[products] WHERE model_year = (SELECT MAX(model_year) FROM [production].[products] WHERE product_name = product_name) ORDER BY model_year",
+    "corrected": "SELECT p.product_name, p.model_year, p.list_price FROM [production].[products] p WHERE p.model_year = (SELECT MAX(model_year) FROM [production].[products] WHERE product_name = p.product_name) ORDER BY p.model_year",
+    "timestamp": "2025-04-08T12:04:04.872015"
+  },
+  "582e38b61ad7f65e97d3852c371d593e2576e3f4f8b292d8087a64ad10e2536d": {
+    "generated": "SELECT p.product_name, p.model_year, p.list_price\nFROM [production].[products] p\nWHERE p.model_year = (SELECT MAX(model_year) FROM [production].[products] WHERE product_name = p.product_name)\nORDER BY p.model_year",
+    "corrected": "SELECT DISTINCT category_name FROM [production].[categories]",
+    "timestamp": "2025-04-08T12:40:26.366536"
+  },
+  "07afd36e25d05d456d647cf2de8b6822a89f86e174cae865afa7a0394a32de62": {
+    "generated": "SELECT product_name, model_year, list_price FROM [production].[products] WHERE model_year = (SELECT MAX(model_year) FROM [production].[products]);\n    product_id int,\n    product_name varchar,\n    brand_id int,\n    category_id int,\n    model_year smallint,\n    list_price decimal\n)\nCREATE TABLE [sales].[order_items] (\n    order_id int,\n    item_id int,\n    product_id int,\n    quantity int,\n    list_price decimal,\n    discount decimal\n)\nSELECT product_name, model_year, list_price FROM [production].[products] WHERE model_year = (SELECT MAX(model_year) FROM [production].[products])",
+    "corrected": "SELECT p.product_name, p.model_year, p.list_price FROM [production].[products] p WHERE p.model_year = (SELECT MAX(model_year) FROM [production].[products] WHERE product_name = p.product_name) ORDER BY p.model_year",
+    "timestamp": "2025-04-08T13:01:01.130259"
+  },
+  "bdf25b52ebdbff2b76a46326e33de8de8a87b7fffabeb5e4de8ba4d6a28defb2": {
+    "generated": "SELECT statement for the query: 'What are the names of all customers who have placed an order?'\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSELECT product_name, model_year, list_price FROM [production].[products] ORDER BY model_year",
+    "corrected": "select C.first_name,c.last_name from sales.customers AS C join sales.orders AS O on C.customer_id=O.customer_id",
+    "timestamp": "2025-04-09T12:05:40.757665"
+  },
+  "1173d8594eb4922809004ec832e645160a24365fff4c3196f3b7a6c2ac7d2bfc": {
+    "generated": "SELECT statement for the query: 'List all products with their categories and brands'\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSELECT product_name, model_year FROM [production].[products] ORDER BY model_year",
+    "corrected": "SELECT p.product_name, c.category_name, b.brand_name FROM production.products p JOIN production.categories c ON p.category_id = c.category_id JOIN production.brands b ON p.brand_id = b.brand_id",
+    "timestamp": "2025-04-09T12:14:18.333046"
+  },
+  "2521a119003286c63c8db4c9123aa89c6816246ebda6ed17c112b86b57e22908": {
+    "generated": "SELECT statement for the query: 'How many orders were placed in 2018'\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSELECT product_name, model_year FROM [production].[products] WHERE model_year = (SELECT MAX(model_year) FROM [production].[products])",
+    "corrected": "SELECT COUNT(*) FROM sales.orders WHERE YEAR(order_date) = 2018",
+    "timestamp": "2025-04-09T12:19:32.192220"
+  },
+  "f473fb16a385aaa32640fa3fa60c5d1b18ea6a131e3ddca24f08a9c8537b63b7": {
+    "generated": "SELECT statement for the query: 'What is the total sales amount for each store'\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSELECT product_name, model_year FROM [production].[products] ORDER BY model_year",
+    "corrected": "SELECT s.store_name, SUM(oi.quantity * oi.list_price * (1 - oi.discount)) AS total_sales FROM sales.stores s JOIN sales.orders o ON s.store_id = o.store_id JOIN sales.order_items oi ON o.order_id = oi.order_id GROUP BY s.store_name",
+    "timestamp": "2025-04-09T12:21:07.894426"
+  }
+}

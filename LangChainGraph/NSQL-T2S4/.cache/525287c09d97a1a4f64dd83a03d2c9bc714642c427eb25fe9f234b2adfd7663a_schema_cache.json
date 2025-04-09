@@ -1,0 +1,308 @@
+{
+  "production.categories": {
+    "columns": [
+      [
+        "category_id",
+        "int"
+      ],
+      [
+        "category_name",
+        "varchar"
+      ]
+    ]
+  },
+  "production.brands": {
+    "columns": [
+      [
+        "brand_id",
+        "int"
+      ],
+      [
+        "brand_name",
+        "varchar"
+      ]
+    ]
+  },
+  "production.products": {
+    "columns": [
+      [
+        "product_id",
+        "int"
+      ],
+      [
+        "product_name",
+        "varchar"
+      ],
+      [
+        "brand_id",
+        "int"
+      ],
+      [
+        "category_id",
+        "int"
+      ],
+      [
+        "model_year",
+        "smallint"
+      ],
+      [
+        "list_price",
+        "decimal"
+      ]
+    ]
+  },
+  "sales.customers": {
+    "columns": [
+      [
+        "customer_id",
+        "int"
+      ],
+      [
+        "first_name",
+        "varchar"
+      ],
+      [
+        "last_name",
+        "varchar"
+      ],
+      [
+        "phone",
+        "varchar"
+      ],
+      [
+        "email",
+        "varchar"
+      ],
+      [
+        "street",
+        "varchar"
+      ],
+      [
+        "city",
+        "varchar"
+      ],
+      [
+        "state",
+        "varchar"
+      ],
+      [
+        "zip_code",
+        "varchar"
+      ]
+    ]
+  },
+  "sales.stores": {
+    "columns": [
+      [
+        "store_id",
+        "int"
+      ],
+      [
+        "store_name",
+        "varchar"
+      ],
+      [
+        "phone",
+        "varchar"
+      ],
+      [
+        "email",
+        "varchar"
+      ],
+      [
+        "street",
+        "varchar"
+      ],
+      [
+        "city",
+        "varchar"
+      ],
+      [
+        "state",
+        "varchar"
+      ],
+      [
+        "zip_code",
+        "varchar"
+      ]
+    ]
+  },
+  "sales.staffs": {
+    "columns": [
+      [
+        "staff_id",
+        "int"
+      ],
+      [
+        "first_name",
+        "varchar"
+      ],
+      [
+        "last_name",
+        "varchar"
+      ],
+      [
+        "email",
+        "varchar"
+      ],
+      [
+        "phone",
+        "varchar"
+      ],
+      [
+        "active",
+        "tinyint"
+      ],
+      [
+        "store_id",
+        "int"
+      ],
+      [
+        "manager_id",
+        "int"
+      ]
+    ]
+  },
+  "sales.orders": {
+    "columns": [
+      [
+        "order_id",
+        "int"
+      ],
+      [
+        "customer_id",
+        "int"
+      ],
+      [
+        "order_status",
+        "tinyint"
+      ],
+      [
+        "order_date",
+        "date"
+      ],
+      [
+        "required_date",
+        "date"
+      ],
+      [
+        "shipped_date",
+        "date"
+      ],
+      [
+        "store_id",
+        "int"
+      ],
+      [
+        "staff_id",
+        "int"
+      ]
+    ]
+  },
+  "sales.order_items": {
+    "columns": [
+      [
+        "order_id",
+        "int"
+      ],
+      [
+        "item_id",
+        "int"
+      ],
+      [
+        "product_id",
+        "int"
+      ],
+      [
+        "quantity",
+        "int"
+      ],
+      [
+        "list_price",
+        "decimal"
+      ],
+      [
+        "discount",
+        "decimal"
+      ]
+    ]
+  },
+  "production.stocks": {
+    "columns": [
+      [
+        "store_id",
+        "int"
+      ],
+      [
+        "product_id",
+        "int"
+      ],
+      [
+        "quantity",
+        "int"
+      ]
+    ]
+  },
+  "dbo.sysdiagrams": {
+    "columns": [
+      [
+        "name",
+        "nvarchar"
+      ],
+      [
+        "principal_id",
+        "int"
+      ],
+      [
+        "diagram_id",
+        "int"
+      ],
+      [
+        "version",
+        "int"
+      ],
+      [
+        "definition",
+        "varbinary"
+      ]
+    ],
+    "indexes": [
+      {
+        "name": "PK__sysdiagr__C2B05B61F06AA0B7",
+        "column": "diagram_id"
+      },
+      {
+        "name": "UK_principal_name",
+        "column": "principal_id"
+      },
+      {
+        "name": "UK_principal_name",
+        "column": "name"
+      }
+    ]
+  },
+  "hr.candidates": {
+    "columns": [
+      [
+        "id",
+        "int"
+      ],
+      [
+        "fullname",
+        "varchar"
+      ]
+    ]
+  },
+  "hr.employees": {
+    "columns": [
+      [
+        "id",
+        "int"
+      ],
+      [
+        "fullname",
+        "varchar"
+      ]
+    ]
+  }
+}
