@@ -147,7 +147,14 @@ try:
 except Exception as e:
     logger.error(f"Model loading failed: {str(e)}")
     print(f"❌ Failed to load model: {str(e)}")
-    sys.exit(1)
+    # Fallback to CPU if CUDA fails at startup
+    device = "cpu"
+    model = AutoModelForCausalLM.from_pretrained(
+        "defog/sqlcoder-7b-2",
+        torch_dtype=torch.float32,
+        low_cpu_mem_usage=True
+    ).to(device)
+    logger.info(f"Model loaded on CPU fallback: defog/sqlcoder-7b-2")
 
 # ======================
 # Query Processing
@@ -209,7 +216,7 @@ query_cache = load_cache(QUERY_CACHE_FILE)
 
 def generate_sql(prompt: str, user_query: str) -> str:
     """Generate SQL with 2-row limit"""
-    global query_cache, model, device
+    global query_cache
     query_hash = hashlib.sha256(user_query.encode()).hexdigest()
     
     if query_hash in query_cache:
@@ -218,91 +225,73 @@ def generate_sql(prompt: str, user_query: str) -> str:
             sql = f"SELECT TOP 2 {sql[6:]}"
         return sql.strip()
 
+    sql = None
     try:
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
         logger.debug(f"Input IDs shape: {input_ids.shape}")
-        try:
-            # Attempt CUDA generation with reduced max_new_tokens
-            generated_ids = model.generate(
-                input_ids,
-                max_new_tokens=50,  # Reduced from 100 to lower memory demand
-                pad_token_id=tokenizer.eos_token_id,
-                num_beams=1,
-                temperature=0.7,
-                do_sample=False
-            )
-        except RuntimeError as cuda_error:
-            logger.warning(f"CUDA failed: {str(cuda_error)}. Falling back to CPU.")
-            # Move model to CPU and retry
-            model = model.to("cpu")
-            device = "cpu"
-            generated_ids = model.generate(
-                input_ids.to("cpu"),
-                max_new_tokens=50,
-                pad_token_id=tokenizer.eos_token_id,
-                num_beams=1,
-                temperature=0.7,
-                do_sample=False
-            )
-            # Move model back to CUDA for subsequent queries
-            model = model.to("cuda")
-            device = "cuda"
-        
+        generated_ids = model.generate(
+            input_ids,
+            max_new_tokens=50,  # Reduced for stability
+            pad_token_id=tokenizer.eos_token_id,
+            num_beams=1,
+            temperature=0.7,
+            do_sample=False
+        )
         sql = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
         match = re.search(r'(?i)^\s*SELECT\s+.*$', sql, re.MULTILINE)
         sql = match.group(0).strip() if match else "SELECT TOP 2 -- Invalid generation"
         if not sql.upper().startswith("SELECT TOP"):
             sql = f"SELECT TOP 2 {sql[6:]}"
         sql = re.sub(r'--.*$', '', sql, flags=re.MULTILINE).strip()
+    except Exception as e:
+        logger.error(f"Generation failed: {str(e)}")
+        sql = "SELECT TOP 2 -- Generation error"
 
-        query_lower = user_query.lower()
-        year = re.search(r'\b(\d{4})\b', query_lower).group(1) if re.search(r'\b(\d{4})\b', query_lower) else None
-        store_match = re.search(r"(?:in|at)\s+store(?:_name)?\s+['\"]?(.*?)(?:['\"]|$)", query_lower)
-        store_name = store_match.group(1).strip("'\"") if store_match else None
-        
-        # Override model output with fallback logic
-        if "latest" in query_lower and "product" in query_lower:
-            sql = """SELECT TOP 2 p.product_name, p.model_year, p.list_price
+    # Apply fallback logic regardless of generation success
+    query_lower = user_query.lower()
+    year = re.search(r'\b(\d{4})\b', query_lower).group(1) if re.search(r'\b(\d{4})\b', query_lower) else None
+    store_match = re.search(r"(?:in|at)\s+store(?:_name)?\s+['\"]?(.*?)(?:['\"]|$)", query_lower)
+    store_name = store_match.group(1).strip("'\"") if store_match else None
+    
+    if "latest" in query_lower and "product" in query_lower:
+        sql = """SELECT TOP 2 p.product_name, p.model_year, p.list_price
 FROM [production].[products] p
 WHERE p.model_year = (SELECT MAX(model_year) FROM [production].[products] WHERE product_name = p.product_name)
 ORDER BY p.model_year"""
-        elif "year wise" in query_lower and "product" in query_lower:
-            sql = "SELECT TOP 2 product_name, model_year, list_price FROM [production].[products] ORDER BY model_year"
-        elif "how many" in query_lower and "order" in query_lower and year:
-            sql = f"SELECT TOP 2 COUNT(*) FROM [sales].[orders] WHERE YEAR(order_date) = {year}"
-        elif "stock" in query_lower and "store" in query_lower:
-            if "details" in query_lower:
-                sql = """SELECT TOP 2 p.product_name, sk.store_id, s.store_name, s.street, s.city, s.email, sk.quantity
+    elif "year wise" in query_lower and "product" in query_lower:
+        sql = "SELECT TOP 2 product_name, model_year, list_price FROM [production].[products] ORDER BY model_year"
+    elif "how many" in query_lower and "order" in query_lower and year:
+        sql = f"SELECT TOP 2 COUNT(*) FROM [sales].[orders] WHERE YEAR(order_date) = {year}"
+    elif "stock" in query_lower and "store" in query_lower:
+        if "details" in query_lower:
+            sql = """SELECT TOP 2 p.product_name, sk.store_id, s.store_name, s.street, s.city, s.email, sk.quantity
 FROM [production].[products] p
 JOIN [production].[stocks] sk ON p.product_id = sk.product_id
 JOIN [sales].[stores] s ON sk.store_id = s.store_id
 ORDER BY sk.store_id, p.product_name"""
-            else:
-                sql = """SELECT TOP 2 sk.store_id, p.product_name, sk.quantity
+        else:
+            sql = """SELECT TOP 2 sk.store_id, p.product_name, sk.quantity
 FROM [production].[products] p
 JOIN [production].[stocks] sk ON p.product_id = sk.product_id
 ORDER BY sk.store_id, p.product_name"""
-        elif "total" in query_lower and "sales" in query_lower and "store" in query_lower:
-            if store_name:
-                sql = f"""SELECT TOP 2 s.store_name, SUM(oi.quantity * oi.list_price * (1 - oi.discount)) AS total_sales
+    elif "total" in query_lower and "sales" in query_lower and "store" in query_lower:
+        if store_name:
+            sql = f"""SELECT TOP 2 s.store_name, SUM(oi.quantity * oi.list_price * (1 - oi.discount)) AS total_sales
 FROM [sales].[stores] s
 JOIN [sales].[orders] o ON s.store_id = o.store_id
 JOIN [sales].[order_items] oi ON o.order_id = oi.order_id
 WHERE s.store_name = '{store_name}'
 GROUP BY s.store_name"""
-            else:
-                sql = """SELECT TOP 2 s.store_name, SUM(oi.quantity * oi.list_price * (1 - oi.discount)) AS total_sales
+        else:
+            sql = """SELECT TOP 2 s.store_name, SUM(oi.quantity * oi.list_price * (1 - oi.discount)) AS total_sales
 FROM [sales].[stores] s
 JOIN [sales].[orders] o ON s.store_id = o.store_id
 JOIN [sales].[order_items] oi ON o.order_id = oi.order_id
 GROUP BY s.store_name"""
 
-        query_cache[query_hash] = sql
-        save_cache(QUERY_CACHE_FILE, query_cache)
-        return sql.strip()
-    except Exception as e:
-        logger.error(f"Generation failed: {str(e)}")
-        return "SELECT TOP 2 -- Generation error"
+    query_cache[query_hash] = sql
+    save_cache(QUERY_CACHE_FILE, query_cache)
+    return sql.strip()
 
 def execute_sql(sql: str, conn: pyodbc.Connection):
     """Execute SQL and display up to 2 rows"""
