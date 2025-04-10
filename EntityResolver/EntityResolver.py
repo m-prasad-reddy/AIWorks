@@ -1,10 +1,11 @@
 import os
 import json
-import pyodbc
+import re
 import numpy as np
 import spacy
+import pyodbc
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, DefaultDict
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import defaultdict
@@ -22,10 +23,11 @@ class DatabaseAnalyzer:
         
     def run(self):
         print("=== Database Schema Analyzer ===")
-        print("1. Load Database Configuration")
-        print("2. Exit")
-        
         while True:
+            print("\nMain Menu:")
+            print("1. Load Database Configuration")
+            print("2. Exit")
+            
             choice = input("\nEnter your choice (1-2): ").strip()
             
             if choice == "1":
@@ -39,7 +41,7 @@ class DatabaseAnalyzer:
                 print("Invalid choice. Please try again.")
     
     def handle_database_config(self):
-        config_path = input("Enter config file path [default: database_configurations.json]: ").strip()
+        config_path = input("\nEnter config file path [default: database_configurations.json]: ").strip()
         if not config_path:
             config_path = os.path.join(os.getcwd(), "database_configurations.json")
         
@@ -99,25 +101,25 @@ class DatabaseAnalyzer:
     def initialize_schema_manager(self):
         schema_manager = SchemaManager(self.current_config['database'])
         if schema_manager.needs_refresh(self.connection):
-            print("Updating schema cache...")
+            print("\nUpdating schema cache...")
             self.schema_dict = schema_manager.build_data_dict(self.connection)
             print("Schema cache updated successfully!")
         else:
-            print("Loading schema from cache...")
+            print("\nLoading schema from cache...")
             self.schema_dict = schema_manager.load_from_cache()
             print("Schema loaded from cache.")
     
     def main_analysis_loop(self):
         while True:
             print("\nOptions:")
-            print("1. Enter a query for table identification")
+            print("1. Enter query mode")
             print("2. Switch database configuration")
             print("3. Back to main menu")
             
             choice = input("\nEnter your choice (1-3): ").strip()
             
             if choice == "1":
-                self.process_user_query()
+                self.query_mode()
             elif choice == "2":
                 self.handle_database_config()
                 if not self.connection:
@@ -130,75 +132,151 @@ class DatabaseAnalyzer:
             else:
                 print("Invalid choice. Please try again.")
     
-    def process_user_query(self):
-        query = input("\nEnter your database query in natural language: ").strip()
-        if not query:
-            print("No query entered.")
-            return
-        
-        print("\nAnalyzing query...")
-        
-        try:
-            # Step 1: Identify tables
-            identified_tables = self.table_identifier.identify_tables(query)
+    def query_mode(self):
+        while True:
+            query = input("\nEnter your database query (or 'back' to return to options): ").strip()
+            if query.lower() == 'back':
+                return
             
-            # Step 2: Present analysis
-            print("\n=== Table Identification Results ===")
-            print(f"Query: {query}")
-            print("\nIdentified Tables:")
-            for i, table in enumerate(identified_tables, 1):
-                print(f"{i}. {table}")
+            if not query:
+                print("No query entered.")
+                continue
             
-            # Step 3: Get user feedback
-            feedback = input("\nIs this correct? (Y/N, or 'skip'): ").strip().lower()
+            print("\nAnalyzing query...")
             
-            if feedback == 'y':
-                print("\nProceeding with identified tables...")
-                self.generate_ddl(identified_tables)
-            elif feedback == 'n':
-                correct_tables = input("Enter correct tables (comma separated): ").strip().split(',')
-                correct_tables = [t.strip() for t in correct_tables if t.strip()]
-                if correct_tables:
-                    self.feedback_learner.store_feedback(query, correct_tables)
-                    print("\nThank you for your feedback! The system will learn from this.")
-                    self.generate_ddl(correct_tables)
-                else:
-                    print("\nNo valid tables provided. Feedback not stored.")
-            else:
-                print("\nSkipping feedback for this query.")
+            try:
+                identified_tables, should_display = self.table_identifier.identify_tables(query)
+                
+                if not should_display:
+                    print("\n[System] Low confidence in table identification. Please provide tables manually.")
+                    correct_tables = self._get_validated_tables_input()
+                    if correct_tables:
+                        self.feedback_learner.store_feedback(query, correct_tables, self.schema_dict)
+                        self.table_identifier.update_weights_from_feedback(query, correct_tables)
+                        self.generate_ddl(correct_tables)
+                    continue
+                
+                print("\n=== Table Identification Results ===")
+                print(f"Query: {query}")
+                print("\nIdentified Tables:")
+                for i, table in enumerate(identified_tables, 1):
+                    print(f"{i}. {table}")
+                
+                while True:
+                    feedback = input("\nIs this correct? (Y/N/back): ").strip().lower()
+                    
+                    if feedback == 'back':
+                        break
+                    elif feedback == 'y':
+                        valid_tables = self._validate_tables_exist(identified_tables)
+                        if valid_tables:
+                            self.generate_ddl(valid_tables)
+                            self.table_identifier.update_weights_from_feedback(query, valid_tables)
+                        break
+                    elif feedback == 'n':
+                        correct_tables = self._get_validated_tables_input()
+                        if correct_tables:
+                            self.feedback_learner.store_feedback(query, correct_tables, self.schema_dict)
+                            self.table_identifier.update_weights_from_feedback(query, correct_tables)
+                            self.generate_ddl(correct_tables)
+                        break
+                    else:
+                        print("Invalid input. Please enter Y, N, or back")
+            
+            except Exception as e:
+                print(f"\nError processing query: {str(e)}")
+    
+    def _get_validated_tables_input(self) -> List[str]:
+        """Get and validate table input from user"""
+        while True:
+            tables_input = input("\nEnter tables (schema.table, comma separated or 'back'): ").strip()
+            if tables_input.lower() == 'back':
+                return []
+                
+            tables = [t.strip() for t in tables_input.split(',') if t.strip()]
+            
+            valid_tables, invalid_tables = self.feedback_learner.validate_tables(
+                tables, self.schema_dict)
+            
+            if not invalid_tables:
+                return valid_tables
+                
+            print(f"\n[Error] Invalid tables: {', '.join(invalid_tables)}")
+            print("Available schemas and tables:")
+            for schema in self.schema_dict['tables']:
+                print(f"  {schema}: {', '.join(self.schema_dict['tables'][schema].keys())}")
+    
+    def _validate_tables_exist(self, tables: List[str]) -> List[str]:
+        """Ensure tables exist in schema (case-insensitive)"""
+        valid_tables = []
+        invalid_tables = []
         
-        except Exception as e:
-            print(f"\nError processing query: {str(e)}")
+        # Build lowercase mapping of all schemas and tables
+        schema_map = {s.lower(): s for s in self.schema_dict['tables']}
+        table_maps = {
+            s: {t.lower(): t for t in self.schema_dict['tables'][s]} 
+            for s in self.schema_dict['tables']
+        }
+        
+        for table in tables:
+            parts = table.split('.')
+            if len(parts) != 2:
+                invalid_tables.append(table)
+                continue
+                
+            schema_part, table_part = parts
+            schema_lower = schema_part.lower()
+            table_lower = table_part.lower()
+            
+            # Find matching schema (case-insensitive)
+            if schema_lower not in schema_map:
+                invalid_tables.append(table)
+                continue
+                
+            actual_schema = schema_map[schema_lower]
+            
+            # Find matching table (case-insensitive)
+            if table_lower not in table_maps[actual_schema]:
+                invalid_tables.append(table)
+                continue
+                
+            actual_table = table_maps[actual_schema][table_lower]
+            valid_tables.append(f"{actual_schema}.{actual_table}")
+        
+        if invalid_tables:
+            print(f"\n[Warning] These tables don't exist in schema: {', '.join(invalid_tables)}")
+            print("Please provide correct tables")
+            return self._get_validated_tables_input()
+            
+        return valid_tables
     
     def generate_ddl(self, tables: List[str]):
         print("\n=== Generated DDL ===")
         for table in tables:
-            schema, table_name = table.split('.') if '.' in table else (None, table)
-            print(f"\n-- Structure for {table}")
+            if '.' not in table:
+                print(f"\n/* Invalid table format: {table} (should be schema.table) */")
+                continue
+                
+            schema, table_name = table.split('.')
+            print(f"\n-- Structure for [{schema}].[{table_name}]")
             
             try:
-                # Get table structure from schema dictionary
-                table_info = None
-                if schema:
-                    table_info = self.schema_dict['tables'].get(schema, {}).get(table_name)
-                else:
-                    for schema_name in self.schema_dict['tables']:
-                        if table_name in self.schema_dict['tables'][schema_name]:
-                            table_info = self.schema_dict['tables'][schema_name][table_name]
-                            schema = schema_name
-                            break
-                
-                if not table_info:
-                    print(f"/* Table {table} not found in schema */")
+                # Verify table exists
+                if schema not in self.schema_dict['tables']:
+                    print(f"/* Schema {schema} not found */")
+                    continue
+                    
+                if table_name not in self.schema_dict['tables'][schema]:
+                    print(f"/* Table {table_name} not found in schema {schema} */")
                     continue
                 
                 # Generate CREATE TABLE statement
-                print(f"CREATE TABLE {schema}.{table_name} (")
+                print(f"CREATE TABLE [{schema}].[{table_name}] (")
                 
                 columns = self.schema_dict['columns'][schema][table_name]
                 col_defs = []
                 for col_name, col_info in columns.items():
-                    col_def = f"    {col_name} {col_info['type']}"
+                    col_def = f"    [{col_name}] {col_info['type']}"
                     if 'is_primary_key' in col_info and col_info['is_primary_key']:
                         col_def += " PRIMARY KEY"
                     if 'nullable' in col_info and not col_info['nullable']:
@@ -266,6 +344,7 @@ class SchemaManager:
     
     def build_data_dict(self, conn) -> Dict:
         schema_dict = {
+            "database": self.db_name,
             "schemas": {},
             "tables": defaultdict(dict),
             "columns": defaultdict(lambda: defaultdict(dict)),
@@ -392,6 +471,11 @@ class SchemaManager:
                 with open(self.cache_file, 'w') as f:
                     json.dump(schema_dict, f, indent=2)
                 
+                # Generate initial weights if they don't exist
+                weights_file = os.path.join(self.cache_dir, "weights.json")
+                if not os.path.exists(weights_file):
+                    TableIdentifier(schema_dict, None)  # This will generate weights
+                
                 return schema_dict
         
         except Exception as e:
@@ -400,7 +484,10 @@ class SchemaManager:
     
     def load_from_cache(self) -> Dict:
         with open(self.cache_file) as f:
-            return json.load(f)
+            schema_dict = json.load(f)
+            # Ensure database name is set
+            schema_dict['database'] = self.db_name
+            return schema_dict
 
 class FeedbackLearner:
     def __init__(self, db_name: str):
@@ -408,28 +495,202 @@ class FeedbackLearner:
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
         self.feedback_dir = os.path.join("feedback", db_name)
         os.makedirs(self.feedback_dir, exist_ok=True)
+        self.feedback_cache = {}  # In-memory cache for faster lookup
+        self.pattern_cache = {}   # Cache for query patterns
+        self._load_feedback_cache()
     
-    def store_feedback(self, query: str, correct_tables: List[str]):
-        try:
-            embedding = self.model.encode(query)
-            feedback_id = datetime.now().strftime("%Y%m%d%H%M%S")
-            
-            np.save(os.path.join(self.feedback_dir, f"{feedback_id}_emb.npy"), embedding)
-            with open(os.path.join(self.feedback_dir, f"{feedback_id}_meta.json"), 'w') as f:
-                json.dump({
-                    'query': query,
-                    'tables': correct_tables,
-                    'timestamp': datetime.now().isoformat()
-                }, f)
-            
-            print(f"\n[System] Feedback stored (ID: {feedback_id})")
+    def _load_feedback_cache(self):
+        """Load all feedback into memory for faster access"""
+        self.feedback_cache.clear()
+        self.pattern_cache.clear()
         
-        except Exception as e:
-            print(f"\n[System] Error storing feedback: {str(e)}")
+        for fname in os.listdir(self.feedback_dir):
+            if fname.endswith("_meta.json"):
+                with open(os.path.join(self.feedback_dir, fname)) as f:
+                    meta = json.load(f)
+                    # Normalize table names to lowercase for consistency
+                    normalized_tables = [t.lower() for t in meta['tables']]
+                    
+                    # Store exact match
+                    self.feedback_cache[meta['query'].lower()] = {
+                        'tables': normalized_tables,
+                        'timestamp': meta['timestamp']
+                    }
+                    
+                    # Store pattern match
+                    pattern = self._extract_query_pattern(meta['query'])
+                    if pattern not in self.pattern_cache:
+                        self.pattern_cache[pattern] = {
+                            'tables': normalized_tables,
+                            'timestamp': meta['timestamp'],
+                            'count': 1
+                        }
+                    else:
+                        self.pattern_cache[pattern]['count'] += 1
+    
+    def _extract_query_pattern(self, query: str) -> str:
+        """Extract a generalized pattern from the query with condition handling"""
+        doc = nlp(query.lower())
+        pattern = []
+        skip_next = False
+        
+        for i, token in enumerate(doc):
+            if skip_next:
+                skip_next = False
+                continue
+                
+            if token.text in ('=', '!=') and i > 0:
+                # Found a condition, mark the pattern
+                pattern.append(f"{doc[i-1].lemma_}=[CONDITION]")
+                skip_next = True  # Skip the value
+            elif token.like_num:
+                pattern.append('[YEAR]')
+            elif token.is_quote:
+                pattern.append('[QUOTED]')
+            else:
+                pattern.append(token.lemma_)
+        
+        return ' '.join(pattern)
+    
+    def _normalize_query(self, query: str) -> str:
+        """Normalize query by handling conditions, numbers, and special chars"""
+        # Replace conditions with placeholders
+        query = re.sub(r'(\w+)\s*[=!]=\s*[\'"]?([\w\s]+)[\'"]?', 
+                      r'\1=[CONDITION]', query, flags=re.IGNORECASE)
+        
+        # Remove standalone numbers
+        query = ' '.join([word for word in query.split() if not word.isdigit()])
+        
+        # Clean special chars but keep spaces
+        return re.sub(r'[^a-z0-9\s]', '', query.lower())
+    
+    def validate_tables(self, tables: List[str], schema_dict: Dict) -> Tuple[List[str], List[str]]:
+        """Validate table names against schema dictionary (case-insensitive)"""
+        valid_tables = []
+        invalid_tables = []
+        
+        # Build lowercase mapping of all schemas and tables
+        schema_map = {s.lower(): s for s in schema_dict['tables']}
+        table_maps = {
+            s: {t.lower(): t for t in schema_dict['tables'][s]} 
+            for s in schema_dict['tables']
+        }
+        
+        for table in tables:
+            parts = table.split('.')
+            if len(parts) != 2:
+                invalid_tables.append(table)
+                continue
+                
+            schema_part, table_part = parts
+            schema_lower = schema_part.lower()
+            table_lower = table_part.lower()
+            
+            # Find matching schema (case-insensitive)
+            if schema_lower not in schema_map:
+                invalid_tables.append(table)
+                continue
+                
+            actual_schema = schema_map[schema_lower]
+            
+            # Find matching table (case-insensitive)
+            if table_lower not in table_maps[actual_schema]:
+                invalid_tables.append(table)
+                continue
+                
+            actual_table = table_maps[actual_schema][table_lower]
+            valid_tables.append(f"{actual_schema}.{actual_table}")
+                
+        return valid_tables, invalid_tables
+    
+    def store_feedback(self, query: str, correct_tables: List[str], schema_dict: Dict) -> bool:
+        """Store feedback with validation and update existing if needed"""
+        valid_tables, invalid_tables = self.validate_tables(correct_tables, schema_dict)
+        
+        if invalid_tables:
+            print(f"\n[Error] These tables don't exist: {', '.join(invalid_tables)}")
+            return False
+            
+        # Normalize table names to lowercase for consistency
+        normalized_tables = [t.lower() for t in valid_tables]
+            
+        # Check for existing feedback to update
+        existing = self._find_exact_match(query)
+        if existing:
+            self._update_feedback(existing, normalized_tables)
+            print("\n[System] Updated existing feedback record")
+        else:
+            self._create_new_feedback(query, normalized_tables)
+            print("\n[System] New feedback stored")
+        
+        # Update the in-memory cache
+        self._load_feedback_cache()
+        return True
+    
+    def _find_exact_match(self, query: str) -> Optional[str]:
+        """Find exact query match in feedback (case-insensitive)"""
+        query_lower = query.lower()
+        for fname in os.listdir(self.feedback_dir):
+            if fname.endswith("_meta.json"):
+                with open(os.path.join(self.feedback_dir, fname)) as f:
+                    meta = json.load(f)
+                    if meta['query'].lower() == query_lower:
+                        return fname.replace("_meta.json", "")
+        return None
+    
+    def _update_feedback(self, feedback_id: str, tables: List[str]):
+        """Update existing feedback"""
+        meta_path = os.path.join(self.feedback_dir, f"{feedback_id}_meta.json")
+        with open(meta_path, 'r+') as f:
+            meta = json.load(f)
+            meta['tables'] = tables
+            meta['timestamp'] = datetime.now().isoformat()
+            f.seek(0)
+            json.dump(meta, f)
+            f.truncate()
+    
+    def _create_new_feedback(self, query: str, tables: List[str]):
+        """Create new feedback entry"""
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        embedding = self.model.encode(self._normalize_query(query))
+        
+        np.save(os.path.join(self.feedback_dir, f"{timestamp}_emb.npy"), embedding)
+        with open(os.path.join(self.feedback_dir, f"{timestamp}_meta.json"), 'w') as f:
+            json.dump({
+                'query': query,
+                'tables': tables,
+                'timestamp': datetime.now().isoformat()
+            }, f)
     
     def get_similar_feedback(self, query: str, threshold: float = 0.85) -> Optional[List[Dict]]:
+        """Retrieve similar feedback using exact match first, then pattern match, then semantic similarity"""
         try:
-            query_emb = self.model.encode(query).reshape(1, -1)
+            # First try exact match (case-insensitive)
+            query_lower = query.lower()
+            if query_lower in self.feedback_cache:
+                return [{
+                    'similarity': 1.0,
+                    'query': query,
+                    'tables': self.feedback_cache[query_lower]['tables'],
+                    'timestamp': self.feedback_cache[query_lower]['timestamp'],
+                    'type': 'exact'
+                }]
+
+            # Then try pattern match
+            pattern = self._extract_query_pattern(query)
+            if pattern in self.pattern_cache:
+                return [{
+                    'similarity': 1.0,
+                    'query': query,
+                    'tables': self.pattern_cache[pattern]['tables'],
+                    'timestamp': self.pattern_cache[pattern]['timestamp'],
+                    'type': 'pattern',
+                    'pattern': pattern,
+                    'count': self.pattern_cache[pattern]['count']
+                }]
+
+            # Fall back to semantic similarity if no exact or pattern match
+            query_emb = self.model.encode(self._normalize_query(query)).reshape(1, -1)
             feedback_items = []
             
             for fname in os.listdir(self.feedback_dir):
@@ -438,6 +699,8 @@ class FeedbackLearner:
                     meta_path = emb_path.replace("_emb.npy", "_meta.json")
                     
                     if os.path.exists(meta_path):
+                        with open(meta_path) as f:
+                            meta = json.load(f)
                         stored_emb = np.load(emb_path)
                         similarity = cosine_similarity(
                             query_emb, 
@@ -445,15 +708,15 @@ class FeedbackLearner:
                         )[0][0]
                         
                         if similarity >= threshold:
-                            with open(meta_path) as f:
-                                meta = json.load(f)
                             feedback_items.append({
                                 "similarity": similarity,
                                 "query": meta["query"],
                                 "tables": meta["tables"],
-                                "timestamp": meta["timestamp"]
+                                "timestamp": meta["timestamp"],
+                                "type": "semantic"
                             })
             
+            # Sort by similarity (highest first)
             feedback_items.sort(key=lambda x: x["similarity"], reverse=True)
             return feedback_items if feedback_items else None
         
@@ -462,76 +725,240 @@ class FeedbackLearner:
             return None
 
 class TableIdentifier:
+    # Confidence thresholds
+    MIN_WEIGHT_TO_DISPLAY = 0.8  # Show results if above this
+    MIN_WEIGHT_TO_ACCEPT = 1.0   # Auto-accept if above this
+    
     def __init__(self, schema_dict: Dict, feedback_learner: FeedbackLearner):
         self.schema_dict = schema_dict
         self.feedback_learner = feedback_learner
         self.cross_schema_index = self.build_cross_schema_index()
-    
-    def build_cross_schema_index(self) -> Dict:
-        column_map = defaultdict(list)
+        self.weights_file = os.path.join("schema_cache", schema_dict.get('database', 'default'), "weights.json")
         
-        for schema_name, tables in self.schema_dict["columns"].items():
+        # Initialize weights - load or generate fresh
+        self.entity_weights = self._initialize_weights()
+    
+    def _initialize_weights(self) -> Dict[str, float]:
+        """Initialize weights from cache or generate new weights from schema"""
+        if os.path.exists(self.weights_file):
+            try:
+                with open(self.weights_file) as f:
+                    return json.load(f)
+            except Exception:
+                pass  # Fall through to generate fresh weights
+        
+        # Generate fresh weights from schema
+        weights = self._generate_base_weights()
+        
+        # Save for future use
+        os.makedirs(os.path.dirname(self.weights_file), exist_ok=True)
+        with open(self.weights_file, 'w') as f:
+            json.dump(weights, f, indent=2)
+            
+        return weights
+    
+    def _generate_base_weights(self) -> Dict[str, float]:
+        """Generate base weights by analyzing schema"""
+        weights = defaultdict(float)
+        
+        # 1. Analyze table names
+        for schema, tables in self.schema_dict['tables'].items():
+            for table_name in tables.keys():
+                # Split table names into components (handle both camelCase and snake_case)
+                components = re.findall(r'[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|[a-z]+', table_name.lower())
+                
+                # Weight components based on their frequency
+                for comp in components:
+                    if len(comp) > 2:  # Ignore very short components
+                        weights[comp] += 1.0
+                        
+                        # Special boost for common suffixes
+                        if comp.endswith(('s', 'es')):  # Plural forms
+                            weights[comp[:-1]] += 0.5
+                        
+                        # Common table patterns
+                        if comp in {'tbl', 'table', 'rel', 'xref', 'map', 'link'}:
+                            weights[comp] += 0.3
+        
+        # 2. Analyze column names
+        for schema, tables in self.schema_dict['columns'].items():
             for table_name, columns in tables.items():
-                for column_name in columns:
-                    full_name = f"{schema_name}.{table_name}.{column_name}"
-                    column_map[column_name.lower()].append(full_name)
+                for column_name in columns.keys():
+                    col_components = re.findall(r'[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|[a-z]+', column_name.lower())
+                    
+                    for comp in col_components:
+                        if len(comp) > 2:
+                            weights[comp] += 0.5  # Columns get less weight than tables
+                            
+                            # Boost for common column patterns
+                            if comp in {'id', 'name', 'date', 'time', 'amount', 'total', 'price', 'qty'}:
+                                weights[comp] += 0.5
+                            elif comp.endswith('_id'):
+                                weights[comp[:-3]] += 0.3  # Reference to another table
         
-        return {k: v for k, v in column_map.items() if len(v) > 1}
+        # 3. Analyze relationships
+        for rel in self.schema_dict['relationships']:
+            from_table = rel['from'].split('.')[1].lower()
+            to_table = rel['to'].split('.')[1].lower()
+            
+            # Boost terms that appear in relationships
+            weights[from_table] += 0.7
+            weights[to_table] += 0.7
+        
+        # Normalize weights to reasonable range
+        max_weight = max(weights.values()) if weights else 1.0
+        return {k: (v/max_weight)*1.5 + 0.5 for k, v in weights.items()}  # Range: 0.5-2.0
     
-    def identify_tables(self, query: str) -> List[str]:
-        if (feedback := self.feedback_learner.get_similar_feedback(query)):
-            print("\n[System] Found similar past queries in feedback database:")
+    def update_weights_from_feedback(self, query: str, correct_tables: List[str]):
+        """Dynamically update weights based on successful feedback"""
+        doc = nlp(query.lower())
+        
+        # Extract entities from query
+        for chunk in doc.noun_chunks:
+            entity = chunk.text.lower()
+            # Boost weight for entities that led to correct tables
+            if entity in self.entity_weights:
+                self.entity_weights[entity] = min(2.0, self.entity_weights[entity] * 1.2)
+            else:
+                self.entity_weights[entity] = 1.2  # Initial weight for new entities
+        
+        # Also learn from table names themselves
+        for table in correct_tables:
+            schema, table_name = table.split('.')
+            for term in table_name.lower().split('_'):
+                if term in self.entity_weights:
+                    self.entity_weights[term] = min(2.0, self.entity_weights[term] * 1.1)
+                else:
+                    self.entity_weights[term] = 1.1
+        
+        # Save updated weights
+        with open(self.weights_file, 'w') as f:
+            json.dump(self.entity_weights, f, indent=2)
+    
+    def identify_tables(self, query: str) -> Tuple[List[str], bool]:
+        """
+        Identify relevant tables for a query
+        Returns tuple of (identified_tables, should_display)
+        """
+        # First check for similar feedback
+        feedback = self.feedback_learner.get_similar_feedback(query)
+        if feedback:
+            print("\n[System] Found matching feedback:")
             for i, item in enumerate(feedback[:3], 1):
-                print(f"{i}. Similarity: {item['similarity']:.2f}")
+                print(f"{i}. Similarity: {item['similarity']:.2f} ({item.get('type', 'unknown')})")
+                if item.get('pattern'):
+                    print(f"   Pattern: {item['pattern']}")
                 print(f"   Query: {item['query']}")
                 print(f"   Tables: {', '.join(item['tables'])}")
+                if item.get('count'):
+                    print(f"   Count: {item['count']}")
             
-            return feedback[0]["tables"]
+            tables = self._select_best_tables(feedback)
+            return tables, True  # Always display feedback-based results
         
-        print("\n[System] No relevant feedback found. Analyzing query with NLP...")
-        entities = self.extract_entities(query)
-        tables = self.find_matching_tables(entities)
-        tables = self.resolve_cross_schema(tables)
+        # NLP-based identification
+        tables = self._identify_tables_nlp(query)
+        total_weight = sum(self._calculate_query_weights(query))
+        
+        # Decide whether to display based on confidence
+        should_display = total_weight >= self.MIN_WEIGHT_TO_DISPLAY
+        return tables, should_display
+    
+    def _calculate_query_weights(self, query: str) -> List[float]:
+        """Calculate weights for all entities in query"""
+        doc = nlp(query.lower())
+        return [
+            self.entity_weights[chunk.text.lower()] 
+            for chunk in doc.noun_chunks 
+            if chunk.text.lower() in self.entity_weights
+        ]
+    
+    def _select_best_tables(self, feedback: List[Dict]) -> List[str]:
+        """Select best tables from similar feedback using weighted scoring"""
+        table_scores = defaultdict(float)
+        
+        for item in feedback:
+            # Different weight based on match type
+            if item.get('type') == 'exact':
+                weight = 2.0
+            elif item.get('type') == 'pattern':
+                weight = 1.5 * (item.get('count', 1) ** 0.5)  # Favor patterns with more examples
+            else:  # semantic
+                weight = item['similarity'] ** 2
+                
+            for table in item['tables']:
+                table_scores[table] += weight
+                
+        # Get top tables by score (minimum score of 1.0)
+        sorted_tables = sorted(table_scores.items(), key=lambda x: -x[1])
+        return [t[0] for t in sorted_tables if t[1] >= 1.0][:5]  # Return max 5 tables
+    
+    def _identify_tables_nlp(self, query: str) -> List[str]:
+        """Identify tables using NLP analysis of the query"""
+        doc = nlp(query.lower())
+        entities = self._extract_entities(doc)
+        tables = self._match_entities_to_tables(entities)
+        tables = self._expand_with_relationships(tables)
         
         return tables
     
-    def extract_entities(self, query: str) -> List[Tuple[str, str]]:
-        doc = nlp(query)
-        entities = []
+    def _extract_entities(self, doc) -> Dict[str, float]:
+        """Extract relevant entities from the query with weights"""
+        entities = defaultdict(float)
+        skip_next = False
         
-        for chunk in doc.noun_chunks:
-            entities.append((chunk.text.lower(), "table_candidate"))
-        
-        for ent in doc.ents:
-            if ent.label_ in ["DATE", "TIME"]:
-                entities.append((ent.text.lower(), "temporal"))
-            elif ent.label_ == "MONEY":
-                entities.append((ent.text.lower(), "monetary"))
-        
-        for token in doc:
-            if token.pos_ == "VERB":
-                entities.append((token.lemma_.lower(), "action"))
+        for i, token in enumerate(doc):
+            if skip_next:
+                skip_next = False
+                continue
+                
+            if token.text in ('=', '!=') and i > 0:
+                # Found a condition, mark the pattern
+                entities[f"{doc[i-1].lemma_}=[CONDITION]"] = 1.5  # Boost condition patterns
+                skip_next = True  # Skip the value
+            elif token.like_num:
+                entities['[YEAR]'] = 1.0
+            elif token.is_quote:
+                entities['[QUOTED]'] = 1.0
+            else:
+                entities[token.lemma_] = self.entity_weights.get(token.lemma_, 1.0)
         
         return entities
     
-    def find_matching_tables(self, entities: List[Tuple[str, str]]) -> List[str]:
-        matched_tables = set()
+    def _match_entities_to_tables(self, entities: Dict[str, float]) -> List[str]:
+        """Case-insensitive table matching with proper schema handling"""
+        table_scores = defaultdict(float)
+        has_conditions = any('=' in e for e in entities)
         
-        for entity_text, entity_type in entities:
-            for schema_name, tables in self.schema_dict["tables"].items():
-                for table_name in tables:
-                    if entity_text in table_name.lower():
-                        matched_tables.add(f"{schema_name}.{table_name}")
-            
-            for schema_name, tables in self.schema_dict["columns"].items():
-                for table_name, columns in tables.items():
-                    for column_name in columns:
-                        if entity_text in column_name.lower():
-                            matched_tables.add(f"{schema_name}.{table_name}")
+        for schema in self.schema_dict['tables']:
+            for table in self.schema_dict['tables'][schema]:
+                full_name = f"{schema}.{table}"
+                table_lower = full_name.lower()
+                
+                # Bonus for tables likely to contain conditions
+                if has_conditions and any(kw in table_lower 
+                                       for kw in ['detail', 'info', 'data']):
+                    table_scores[full_name] += 1.2
+                
+                # Match against each entity
+                for entity, weight in entities.items():
+                    # Handle condition patterns (column=[CONDITION])
+                    if '=' in entity:
+                        col_part = entity.split('=')[0]
+                        if col_part in table_lower:
+                            table_scores[full_name] += weight * 2.0
+                    # Regular matching
+                    elif entity in table_lower:
+                        table_scores[full_name] += weight * 1.5
         
-        return list(matched_tables)
+        # Return tables sorted by score (highest first)
+        return sorted(
+            [t for t, s in table_scores.items() if s >= self.MIN_WEIGHT_TO_ACCEPT],
+            key=lambda x: -table_scores[x]
+        )
     
-    def resolve_cross_schema(self, tables: List[str]) -> List[str]:
+    def _expand_with_relationships(self, tables: List[str]) -> List[str]:
+        """Expand table list based on foreign key relationships"""
         expanded_tables = set(tables)
         
         for rel in self.schema_dict["relationships"]:
@@ -541,12 +968,25 @@ class TableIdentifier:
             from_table = f"{from_parts[0]}.{from_parts[1]}"
             to_table = f"{to_parts[0]}.{to_parts[1]}"
             
+            # If one side is in our tables, add the other side
             if from_table in expanded_tables and to_table not in expanded_tables:
                 expanded_tables.add(to_table)
             elif to_table in expanded_tables and from_table not in expanded_tables:
                 expanded_tables.add(from_table)
         
         return list(expanded_tables)
+    
+    def build_cross_schema_index(self) -> Dict[str, List[str]]:
+        """Build index of columns that appear in multiple schemas"""
+        column_map = defaultdict(list)
+        
+        for schema_name, tables in self.schema_dict["columns"].items():
+            for table_name, columns in tables.items():
+                for column_name in columns:
+                    full_name = f"{schema_name}.{table_name}.{column_name}"
+                    column_map[column_name.lower()].append(full_name)
+        
+        return {k: v for k, v in column_map.items() if len(v) > 1}
 
 if __name__ == "__main__":
     analyzer = DatabaseAnalyzer()
