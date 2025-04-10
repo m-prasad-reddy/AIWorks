@@ -1,0 +1,1 @@
+{"query": "total sales amount at storename 'Baldwin Bikes'", "tables": ["Sales.stores", "Sales.orders", "Sales.order_items"], "timestamp": "2025-04-10T15:45:08.035178"}
