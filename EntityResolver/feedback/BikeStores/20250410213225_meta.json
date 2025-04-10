@@ -1,0 +1,1 @@
+{"query": "show product names produced year wise along with its price", "tables": ["production.products"], "timestamp": "2025-04-10T21:32:25.139838"}

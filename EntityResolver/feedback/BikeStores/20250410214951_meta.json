@@ -1,0 +1,1 @@
+{"query": "SHOW ME PRODUCTS STOCK AVAILABILITY AT ALL STORES", "tables": ["production.products", "production.stocks"], "timestamp": "2025-04-10T21:49:51.132467"}
