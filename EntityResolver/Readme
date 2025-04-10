@@ -1,0 +1,29 @@
+Key Improvements
+
+Enhanced Condition Handling:
+
+Now properly recognizes queries with = and != conditions
+
+Normalizes conditions to [CONDITION] placeholder for better matching
+
+Gives appropriate weight to conditional queries
+
+Improved Pattern Matching:
+
+Handles quoted values and numeric conditions
+
+Better recognition of similar queries with different condition values
+
+Self-Learning Weights:
+
+Automatically generates weights from schema
+
+Updates weights based on user feedback
+
+Persists weights between sessions
+
+Better Table Identification:
+
+Gives bonus to tables likely to contain conditions
+
+Maintains original matching logic for non-conditional queries
